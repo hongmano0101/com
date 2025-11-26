@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>포켓몬 타자 배틀</title>
+    <!-- 픽셀 폰트 불러오기 (둥근모꼴) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/ungyeolee/ttf-dunggeunmo-webfont@1.0.3/dunggeunmo.min.css">
+    
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #202020;
+            font-family: 'DungGeunMo', sans-serif; /* 픽셀 폰트 적용 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        /* 게임기 화면 같은 프레임 */
+        #game-frame {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            background-color: #383838;
+            border-radius: 15px 15px 40px 40px;
+            padding: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            border: 5px solid #5a5a5a;
+        }
+
+        #game-area {
+            position: relative;
+            width: 100%;
+            height: 480px;
+            /* 배경 이미지: 포켓몬 스타일 맵 (무료 에셋 URL 사용) */
+            background-image: url('https://i.pinimg.com/originals/2a/54/9f/2a549f2eb500d0264024c0d487f54c9d.png');
+            background-size: cover;
+            background-position: center;
+            border: 4px solid #fff;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        /* 상단 정보창 (포켓몬 배틀 UI 느낌) */
+        #ui-bar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 3px solid #333;
+            border-radius: 5px;
+            font-size: 20px;
+            color: #333;
+            z-index: 10;
+        }
+
+        .hp-container {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .hp-bar {
+            width: 150px;
+            height: 15px;
+            background-color: #555;
+            border: 2px solid #000;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .hp-fill {
+            width: 100%;
+            height: 100%;
+            background-color: #4CAF50; /* HP 녹색 */
+            transition: width 0.3s, background-color 0.3s;
+        }
+
+        /* 떨어지는 단어 스타일 */
+        .word {
+            position: absolute;
+            color: #fff;
+            font-size: 20px;
+            font-weight: normal;
+            text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+            user-select: none;
+            background: rgba(0,0,0,0.3);
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+
+        /* 입력창 영역 */
+        #input-area {
+            margin-top: 15px;
+            display: flex;
+            justify-content: center;
+        }
+
+        #user-input {
+            width: 100%;
+            padding: 15px;
+            font-size: 24px;
+            font-family: 'DungGeunMo', sans-serif;
+            text-align: left;
+            border: 4px solid #333;
+            border-radius: 5px;
+            background-color: #fff; /* 대화창 느낌 */
+            color: #333;
+            outline: none;
+            box-shadow: 3px 3px 0 rgba(0,0,0,0.2);
+        }
+        #user-input::placeholder {
+            color: #aaa;
+        }
+
+        /* 게임 오버 화면 */
+        #game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            color: white;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        
+        button {
+            margin-top: 20px;
+            padding: 10px 30px;
+            font-size: 20px;
+            font-family: 'DungGeunMo', sans-serif;
+            cursor: pointer;
+            background: #fff;
+            border: 3px solid #333;
+            color: #333;
+        }
+        button:hover {
+            background: #eee;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-frame">
+        <div id="game-area">
+            <div id="ui-bar">
+                <span id="score">Lv. 1 (점수: 0)</span>
+                <div class="hp-container">
+                    <span>HP</span>
+                    <div class="hp-bar">
+                        <div id="hp-fill" class="hp-fill"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="game-over">
+                <h1 style="color: #ff5555; text-shadow: 3px 3px 0 #000;">눈앞이 캄캄해졌다...</h1>
+                <p id="final-score">최종 점수: 0</p>
+                <button onclick="location.reload()">포켓몬 센터에서 회복하기 (재시작)</button>
+            </div>
+        </div>
+
+        <div id="input-area">
+            <input type="text" id="user-input" placeholder="야생의 단어가 튀어나왔다! (입력)" autofocus>
+        </div>
+    </div>
+
+    <script>
+        const gameArea = document.getElementById('game-area');
+        const inputField = document.getElementById('user-input');
+        const scoreDisplay = document.getElementById('score');
+        const hpFill = document.getElementById('hp-fill');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScoreDisplay = document.getElementById('final-score');
+
+        // 포켓몬 테마 단어 리스트
+        const wordsList = [
+            "피카츄", "파이리", "꼬부기", "이상해씨", "리자몽",
+            "몬스터볼", "마스터볼", "상처약", "포켓몬센터", "체육관",
+            "로켓단", "지우", "이슬이", "웅이", "오박사",
+            "10만볼트", "몸통박치기", "전광석화", "하이드로펌프", "화염방사",
+            "뮤츠", "잠만보", "망나뇽", "이브이", "메타몽",
+            "태초마을", "상록시티", "회색시티", "블루시티", "보라타운",
+            "효과는굉장했다", "급소에맞았다", "진화", "도감", "뱃지"
+        ];
+
+        let score = 0;
+        let maxLives = 5;
+        let lives = maxLives;
+        let activeWords = [];
+        let gameRunning = true;
+        let spawnRate = 1200; 
+        let fallSpeed = 1.2;
+
+        function spawnWord() {
+            if (!gameRunning) return;
+
+            const wordText = wordsList[Math.floor(Math.random() * wordsList.length)];
+            
+            const wordEl = document.createElement('div');
+            wordEl.classList.add('word');
+            wordEl.innerText = wordText;
+            
+            // 랜덤 위치 (화면 밖으로 나가지 않게)
+            const maxLeft = gameArea.clientWidth - 100;
+            const randomLeft = Math.floor(Math.random() * maxLeft);
+            
+            wordEl.style.left = (randomLeft + 10) + 'px'; // 여백 보정
+            wordEl.style.top = '0px';
+
+            gameArea.appendChild(wordEl);
+
+            activeWords.push({
+                element: wordEl,
+                text: wordText,
+                y: 0
+            });
+
+            // 난이도 조절: 레벨 개념
+            let level = Math.floor(score / 500) + 1;
+            let currentSpawnRate = Math.max(400, spawnRate - (level * 50)); // 최소 0.4초까지 빨라짐
+
+            setTimeout(spawnWord, currentSpawnRate);
+        }
+
+        function updateGame() {
+            if (!gameRunning) return;
+
+            for (let i = 0; i < activeWords.length; i++) {
+                let wordObj = activeWords[i];
+                
+                // 난이도에 따른 속도 증가
+                let currentFallSpeed = fallSpeed + (Math.floor(score / 1000) * 0.2);
+                
+                wordObj.y += currentFallSpeed;
+                wordObj.element.style.top = wordObj.y + 'px';
+
+                // 바닥에 닿음 (공격 받음)
+                if (wordObj.y > gameArea.clientHeight - 40) {
+                    lives--;
+                    updateLife();
+                    
+                    // 빨간색으로 깜빡이며 사라짐
+                    wordObj.element.style.color = '#ff5555';
+                    wordObj.element.remove();
+                    activeWords.splice(i, 1);
+                    i--;
+
+                    if (lives <= 0) {
+                        endGame();
+                    }
+                }
+            }
+            requestAnimationFrame(updateGame);
+        }
+
+        inputField.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const typedText = inputField.value.trim();
+                
+                const matchIndex = activeWords.findIndex(w => w.text === typedText);
+
+                if (matchIndex !== -1) {
+                    // 명중!
+                    score += 100;
+                    let level = Math.floor(score / 1000) + 1;
+                    scoreDisplay.innerText = `Lv. ${level} (점수: ${score})`;
+                    
+                    // 타격 효과 (노란색)
+                    const target = activeWords[matchIndex];
+                    target.element.style.color = '#ffff00';
+                    target.element.style.textShadow = '0 0 10px yellow';
+                    target.element.style.transform = 'scale(1.5)';
+                    target.element.style.transition = 'all 0.1s';
+                    
+                    setTimeout(() => target.element.remove(), 100);
+                    
+                    activeWords.splice(matchIndex, 1);
+                    inputField.value = '';
+                } else {
+                    inputField.value = ''; 
+                }
+            }
+        });
+
+        function updateLife() {
+            // HP 바 줄어들기
+            let percentage = (lives / maxLives) * 100;
+            hpFill.style.width = percentage + '%';
+            
+            // HP가 적으면 빨간색으로 변경
+            if (percentage <= 20) {
+                hpFill.style.backgroundColor = '#ff5555';
+            } else if (percentage <= 50) {
+                hpFill.style.backgroundColor = '#ffcc00';
+            } else {
+                hpFill.style.backgroundColor = '#4CAF50';
+            }
+        }
+
+        function endGame() {
+            gameRunning = false;
+            finalScoreDisplay.innerText = `최종 점수: ${score}`;
+            gameOverScreen.style.display = 'flex';
+            inputField.disabled = true;
+            inputField.placeholder = "게임 오버!";
+        }
+
+        // 게임 시작
+        spawnWord();
+        updateGame();
+        inputField.focus();
+
+    </script>
+</body>
+</html>
